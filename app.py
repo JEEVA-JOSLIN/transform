@@ -1,25 +1,43 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import HTMLResponse
 import magic
+import io
 
-app = FastAPI(title="File Format Identifier API")
+app = FastAPI()
 
-# Initialize libmagic
-magic_instance = magic.Magic(mime=True)
+# Initialize magic
+magic_instance = magic.Magic()
 
-@app.post("/identify-file")
+# Root endpoint to serve the HTML form
+@app.get("/", response_class=HTMLResponse)
+async def main():
+    html_content = """
+    <html>
+        <body>
+            <h2>Select a file to identify its format:</h2>
+            <form action="/identify" method="post" enctype="multipart/form-data">
+                <input type="file" name="file" required>
+                <input type="submit">
+            </form>
+        </body>
+    </html>
+    """
+    return html_content
+
+# File upload and identification endpoint
+@app.post("/identify", response_class=HTMLResponse)
 async def identify_file(file: UploadFile = File(...)):
     try:
-        # Read file content
+        # Read the file
         file_content = await file.read()
-        # Determine MIME type
-        mime_type = magic_instance.from_buffer(file_content)
-        # Determine File type
-        file_type = magic.Magic().from_buffer(file_content)
-        return {
-            "file_name": file.filename,
-            "mime_type": mime_type,
-            "file_type": file_type,
-        }
+
+        # Identify the MIME type using libmagic
+        mime_type = magic.from_buffer(file_content, mime=True)
+        file_type = magic_instance.from_buffer(file_content)
+        
+        # Return result
+        result = f"<h3>File Type: {file_type}</h3><p>MIME Type: {mime_type}</p>"
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return f"<h3>Error: {str(e)}</h3>"
+
