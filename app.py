@@ -1,21 +1,25 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import JSONResponse
+import magic
 
-app = Flask(__name__)
+app = FastAPI(title="File Format Identifier API")
 
-@app.route('/')
-def home():
-    return jsonify({"message": "Welcome to the Document Transformation API!"})
+# Initialize libmagic
+magic_instance = magic.Magic(mime=True)
 
-@app.route('/transform', methods=['POST'])
-def transform():
-    file = request.files.get('file')
-    format = request.form.get('format')
-    if not file or not format:
-        return jsonify({"error": "Missing file or format"}), 400
-
-    # For simplicity, mock a transformation process
-    transformed_filename = f"transformed_file.{format}"
-    return jsonify({"message": "File transformed successfully", "output_file": transformed_filename})
-
-if __name__ == '__main__':
-    app.run(debug=True)
+@app.post("/identify-file")
+async def identify_file(file: UploadFile = File(...)):
+    try:
+        # Read file content
+        file_content = await file.read()
+        # Determine MIME type
+        mime_type = magic_instance.from_buffer(file_content)
+        # Determine File type
+        file_type = magic.Magic().from_buffer(file_content)
+        return {
+            "file_name": file.filename,
+            "mime_type": mime_type,
+            "file_type": file_type,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
